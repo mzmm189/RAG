@@ -1,5 +1,12 @@
+import os
 from importlib import import_module
 import streamlit as st
+
+try:
+    from dotenv import load_dotenv, find_dotenv
+    load_dotenv(find_dotenv())
+except ImportError:
+    pass
 
 rag = import_module("07_prompting")
 
@@ -7,64 +14,15 @@ st.set_page_config(
     page_title="Medical Transcriptions RAG Assistant",
     page_icon="🩺",
     layout="wide",
-    initial_sidebar_state="expanded",
 )
 
 st.title("🩺 Medical Transcriptions RAG Assistant")
 st.caption(
-    "Clinical Q&A system built on Kaggle Medical Transcriptions using FAISS, TF-IDF Hybrid Search, and Hugging Face Flan-T5."
+    "Clinical Q&A system built on Kaggle Medical Transcriptions using FAISS, TF-IDF Hybrid Search, OpenRouter LLM API & Local Flan-T5 Fallback."
 )
 
 st.divider()
 
-# Sidebar Configuration
-with st.sidebar:
-    st.header("⚙️ Pipeline Configuration")
-
-    strategy_label = st.selectbox(
-        "Retrieval Strategy",
-        options=[
-            "Hybrid (Lexical + Semantic)",
-            "Semantic (FAISS Dense Search)",
-            "TF-IDF (Lexical Search)",
-        ],
-        index=0,
-        help="Select how medical documents are retrieved from the knowledge base.",
-    )
-
-    strategy_map = {
-        "Hybrid (Lexical + Semantic)": "hybrid",
-        "Semantic (FAISS Dense Search)": "semantic",
-        "TF-IDF (Lexical Search)": "tfidf",
-    }
-    search_type = strategy_map[strategy_label]
-
-    alpha = 0.6
-    if search_type == "hybrid":
-        st.markdown("**Hybrid Balance Weight (α)**")
-        alpha = st.slider(
-            "Semantic Weight (Alpha)",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.6,
-            step=0.05,
-            help="Alpha = 1.0 is pure Semantic search; Alpha = 0.0 is pure Lexical TF-IDF search.",
-        )
-        st.caption(
-            f"🧬 Semantic Weight: `{alpha:.2f}` | 🔤 Lexical Weight: `{1-alpha:.2f}`"
-        )
-        st.divider()
-
-    top_k = st.slider(
-        "Top-K Chunks to Retrieve", min_value=1, max_value=10, value=3
-    )
-    max_tokens = st.slider(
-        "Max New Answer Tokens", min_value=20, max_value=250, value=100
-    )
-
-    st.info(
-        "💡 **Hybrid Search Tip:** Hybrid search combines exact keyword terms (e.g. drug names, dosages) with dense semantic embeddings."
-    )
 
 # Quick sample questions
 sample_questions = [
@@ -93,16 +51,11 @@ question = st.text_area(
 )
 
 if st.button("🚀 Answer Question", type="primary") and question.strip():
-    with st.spinner("Searching medical database & generating response with Flan-T5..."):
-        result = rag.rag_answer(
-            question,
-            top_k=top_k,
-            max_new_tokens=max_tokens,
-            search_type=search_type,
-            alpha=alpha,
-        )
+    with st.spinner("Searching medical database & generating response..."):
+        result = rag.rag_answer(question, top_k=5)
 
     st.subheader("💡 Generated Clinical Answer")
+    st.caption(f"🤖 **Model Provider:** `{result.get('llm_provider', 'Unknown')}`")
     st.success(result["answer"])
 
     st.subheader("🔍 View Retrieved Medical Context & Sources")
