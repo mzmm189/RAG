@@ -1,4 +1,6 @@
 .venv
 .env
 data/*.csv
-code.txt
+code.txt
+__pycache__/
+*.pyc
