@@ -1,9 +1,0 @@
-pandas
-numpy
-nltk
-scikit-learn
-sentence-transformers
-faiss-cpu
-transformers
-matplotlib
-streamlit
