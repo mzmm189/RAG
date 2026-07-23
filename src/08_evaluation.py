@@ -90,7 +90,10 @@ def reciprocal_rank(relevant_flags):
     return 0.0
 
 
-def evaluate_semantic_retriever(eval_queries=None, k=5):
+hybrid_search = retrieval_module.hybrid_search
+
+
+def evaluate_retriever(search_fn, search_name="Semantic", eval_queries=None, k=5, **search_kwargs):
     """Compute retrieval quality metrics across benchmark queries using specialty matching as proxy relevance."""
     if eval_queries is None:
         eval_queries = EVAL_QUERIES
@@ -103,19 +106,20 @@ def evaluate_semantic_retriever(eval_queries=None, k=5):
         expected = clean_specialty(item["expected_specialty"])
         total_relevant = int(specialty_counts.get(expected, 0))
 
-        results = semantic_search(question, top_k=k)
+        results = search_fn(question, top_k=k, **search_kwargs)
         retrieved_doc_ids = [r["doc_id"] for r in results]
         similarity_scores = [round(r["similarity_score"], 3) for r in results]
         relevant_flags = [clean_specialty(r["specialty"]) == expected for r in results]
 
         rows.append(
             {
+                "retriever": search_name,
                 "query": question,
                 "expected_specialty": item["expected_specialty"],
                 "retrieved_doc_ids": retrieved_doc_ids,
                 "similarity_scores": similarity_scores,
                 "avg_similarity": round(
-                    sum(similarity_scores) / len(similarity_scores), 3
+                    sum(similarity_scores) / len(similarity_scores) if similarity_scores else 0, 3
                 ),
                 f"precision@{k}": round(precision_at_k(relevant_flags, k), 3),
                 f"recall@{k}": round(
@@ -128,11 +132,19 @@ def evaluate_semantic_retriever(eval_queries=None, k=5):
     return pd.DataFrame(rows)
 
 
+def evaluate_semantic_retriever(eval_queries=None, k=5):
+    return evaluate_retriever(semantic_search, search_name="Semantic", eval_queries=eval_queries, k=k)
+
+
+def evaluate_hybrid_retriever(eval_queries=None, k=5, alpha=0.6):
+    return evaluate_retriever(hybrid_search, search_name=f"Hybrid (alpha={alpha})", eval_queries=eval_queries, k=k, alpha=alpha)
+
+
 def compare_tfidf_vs_semantic(
     query="patient with high blood pressure and diabetes", top_k=3
 ):
     """Compare exact keyword match (TF-IDF) vs dense semantic search on the same query."""
-    print(f"\n=== Comparing TF-IDF vs Semantic Search for: '{query}' ===")
+    print(f"\n=== Comparing TF-IDF vs Semantic vs Hybrid Search for: '{query}' ===")
     print("\n--- Top TF-IDF Results ---")
     tfidf_res = tfidf_search(query, top_k=top_k)
     for _, r in tfidf_res.iterrows():
@@ -144,6 +156,11 @@ def compare_tfidf_vs_semantic(
     for r in sem_res:
         print(f"Score: {r['similarity_score']:.3f} | {r['description']}")
 
+    print("\n--- Top Hybrid Search Results (alpha=0.6) ---")
+    hyb_res = hybrid_search(query, top_k=top_k, alpha=0.6)
+    for r in hyb_res:
+        print(f"Hybrid Score: {r['hybrid_score']:.3f} | {r['description']}")
+
 
 def run_timing_evaluation(questions=None):
     """Compare performance and latency of Top-3 vs Top-5 retrieval."""
@@ -152,8 +169,8 @@ def run_timing_evaluation(questions=None):
 
     timing_rows = []
     for q in questions:
-        timing_rows.append(timed_rag_answer(q, top_k=3))
-        timing_rows.append(timed_rag_answer(q, top_k=5))
+        timing_rows.append(timed_rag_answer(q, top_k=3, search_type="hybrid"))
+        timing_rows.append(timed_rag_answer(q, top_k=5, search_type="hybrid"))
 
     timing_df = pd.DataFrame(timing_rows)
     summary = (
@@ -168,11 +185,17 @@ def run_timing_evaluation(questions=None):
 
 if __name__ == "__main__":
     print("--- Retrieval Performance Metrics (K=5) ---")
-    eval_df = evaluate_semantic_retriever(k=5)
-    print(eval_df[["query", "precision@5", "hit_rate@5", "reciprocal_rank"]])
+    sem_df = evaluate_semantic_retriever(k=5)
+    hyb_df = evaluate_hybrid_retriever(k=5, alpha=0.6)
+
+    combined_eval = pd.concat([sem_df, hyb_df], ignore_index=True)
+    summary_metrics = combined_eval.groupby("retriever")[["precision@5", "hit_rate@5", "reciprocal_rank"]].mean().round(3)
+    print("\n=== Benchmark Summary ===")
+    print(summary_metrics)
 
     compare_tfidf_vs_semantic()
 
-    print("\n--- Timing Evaluation Summary ---")
+    print("\n--- Hybrid Timing Evaluation Summary ---")
     _, timing_summary = run_timing_evaluation()
     print(timing_summary)
+

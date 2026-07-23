@@ -1,6 +1,3 @@
-# Medical RAG Lab 🩺
-
-A modular Retrieval-Augmented Generation (RAG) system built from scratch on top of real medical transcription reports (`mtsamples.csv`), structured following the `simple_rag_lab` pattern.
 
 ## 📁 Repository Structure
 
