@@ -11,18 +11,18 @@ except ImportError:
 rag = import_module("07_prompting")
 
 st.set_page_config(
-    page_title="Medical Transcriptions RAG Assistant",
+    page_title="Health Doc RAG Assistant",
     page_icon="🩺",
     layout="wide",
 )
 
-st.title("🩺 Medical Transcriptions RAG Assistant")
+st.title("🩺 Health Doc RAG Assistant")
 st.caption(
     "Clinical Q&A system built on Kaggle Medical Transcriptions using FAISS, TF-IDF Hybrid Search, OpenRouter LLM API & Local Flan-T5 Fallback."
 )
 
 st.divider()
-
+    
 
 # Quick sample questions
 sample_questions = [

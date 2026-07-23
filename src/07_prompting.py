@@ -51,7 +51,7 @@ def generate_with_openrouter(prompt, max_tokens=100, model=None, api_key=None):
     headers = {
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
-        "X-Title": "Medical RAG Assistant",
+        "X-Title": "Health Doc RAG Assistant",
         "User-Agent": "Python-Urllib/3.0",
     }
     payload = {
